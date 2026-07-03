@@ -6,6 +6,7 @@ import { KalshiClient } from "./client.js";
 import { registerExchangeTools } from "./tools/exchange.js";
 import { registerMarketTools } from "./tools/markets.js";
 import { registerEventTools } from "./tools/events.js";
+import { registerSearchTools } from "./tools/search.js";
 import { registerPortfolioTools } from "./tools/portfolio.js";
 import { registerTradingTools } from "./tools/trading.js";
 
@@ -22,6 +23,7 @@ async function main(): Promise<void> {
   registerExchangeTools(server, client);
   registerMarketTools(server, client);
   registerEventTools(server, client);
+  registerSearchTools(server, client);
 
   // Portfolio reads — registered always; they return a clear error message
   // explaining how to configure credentials when none are present.

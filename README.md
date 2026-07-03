@@ -40,7 +40,7 @@ Then add the server to your Claude Desktop config file:
 
 Restart Claude Desktop and ask something like:
 
-> *"What are the most actively traded open markets on Kalshi right now?"*
+> *"What are the odds on Kalshi for the 2026 Nathan's hot dog eating contest?"*
 >
 > *"Show me the orderbook for the Fed rate decision market."*
 >
@@ -91,6 +91,14 @@ This unlocks the portfolio tools (balance, positions, fills, settlements, orders
 
 ## Tools
 
+### Discovery (public)
+
+| Tool | Description |
+|---|---|
+| `kalshi_search` | **Start here.** Find market topics by plain-language keywords (e.g. "Nathan's hot dog contest", "Fed rate decision") and get their series tickers |
+
+Kalshi has no server-side text search, and its global market/event listings don't return every market — many only appear when you already know the series. `kalshi_search` scans the full series catalog locally and returns the best-matching series, so the model can then call `kalshi_list_markets` / `kalshi_list_events` with the right `series_ticker`.
+
 ### Exchange (public)
 
 | Tool | Description |
@@ -117,7 +125,7 @@ This unlocks the portfolio tools (balance, positions, fills, settlements, orders
 | `kalshi_list_events` | Browse events, optionally with nested markets |
 | `kalshi_get_event` | One event by ticker |
 | `kalshi_get_event_metadata` | Event imagery and settlement sources |
-| `kalshi_list_series` | Series by category (Politics, Economics, Sports, …) |
+| `kalshi_list_series` | Series by category (or all categories if omitted); use `kalshi_search` to find one by keyword |
 | `kalshi_get_series` | One series by ticker |
 | `kalshi_list_milestones` / `kalshi_get_milestone` | Real-world data checkpoints markets settle against |
 | `kalshi_list_multivariate_collections` / `kalshi_get_multivariate_collection` | Parameterized combo-market families |
@@ -145,6 +153,7 @@ This unlocks the portfolio tools (balance, positions, fills, settlements, orders
 
 - **Prices are in cents** (1–99) representing implied probability; a contract settles at 100¢ (yes) or 0¢ (no). Some newer responses also include `_dollars`/`_fp` fixed-point string fields.
 - **Ticker hierarchy:** a *series* (e.g. `KXHIGHNY`) contains *events* (e.g. `KXHIGHNY-25JUL03`) which contain *markets* (e.g. `KXHIGHNY-25JUL03-B85.5`).
+- **Finding markets:** don't guess tickers. Use `kalshi_search` with keywords to get a `series_ticker`, then `kalshi_list_markets` / `kalshi_list_events` filtered by that series. The global unfiltered listings are incomplete and shouldn't be scanned for a specific topic.
 - **Pagination:** list endpoints return a `cursor`; pass it back to fetch the next page. List tools default to small page sizes (25–50) to keep responses MCP-client friendly.
 - **Compact vs. full responses:** `kalshi_list_markets`, `kalshi_list_events`, and `kalshi_list_series` return trimmed summaries by default (tickers, titles, prices, volume, timings). Pass `full_details: true` for raw API objects, or use the corresponding `kalshi_get_*` tool for one item's complete data.
 - **Size guard:** any response that would exceed ~40 KB is automatically trimmed (largest array halved until it fits) and annotated with a `_truncation_note`, so oversized tool results never crash the MCP client.
@@ -178,6 +187,7 @@ src/
     exchange.ts     exchange status, schedule, announcements, fees
     markets.ts      markets, orderbooks, candlesticks, trades
     events.ts       events, series, milestones, multivariate collections
+    search.ts       keyword search over the series catalog (discovery)
     portfolio.ts    balance, positions, fills, settlements, orders (read)
     trading.ts      order create/cancel/amend/decrease (opt-in)
 ```

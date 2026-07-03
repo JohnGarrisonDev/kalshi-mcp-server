@@ -82,10 +82,11 @@ export function registerEventTools(server: McpServer, client: KalshiClient): voi
       description:
         "List Kalshi series (recurring market templates, e.g. 'KXHIGHNY' = daily NYC high temperature). " +
         "Returns compact summaries by default; use kalshi_get_series for full details on one series. " +
-        "Category is required by the API; use kalshi_get_series if you already know the ticker. " +
+        "To find a series by keyword when you don't know the ticker or category, use kalshi_search instead. " +
+        "Omitting category lists the entire catalog (large — the size guard will trim it); pass a category to narrow. " +
         "Example categories: 'Politics', 'Economics', 'Climate and Weather', 'Financials', 'Sports', 'Entertainment', 'Science and Technology', 'World', 'Crypto', 'Health', 'Companies'.",
       inputSchema: {
-        category: z.string().describe("Series category to list, e.g. 'Economics'"),
+        category: z.string().optional().describe("Series category to list, e.g. 'Economics' (omit for all categories)"),
         include_product_metadata: z.boolean().optional().describe("Include additional product metadata"),
         full_details: z
           .boolean()
@@ -93,7 +94,7 @@ export function registerEventTools(server: McpServer, client: KalshiClient): voi
           .describe("Return complete raw series objects instead of compact summaries (default false)"),
       },
     },
-    handle(async (args: { category: string; include_product_metadata?: boolean; full_details?: boolean }) => {
+    handle(async (args: { category?: string; include_product_metadata?: boolean; full_details?: boolean }) => {
       const { full_details, ...query } = args;
       const data = await client.request<{ series?: Record<string, unknown>[] }>("GET", "/series", {
         query: query as Record<string, string | boolean>,
