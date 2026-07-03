@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { KalshiClient } from "../client.js";
-import { handle } from "../helpers.js";
+import { compactMarket, handle } from "../helpers.js";
 
 const paginationNote = "Responses are paginated; pass the returned `cursor` back in to fetch the next page.";
 
@@ -12,10 +12,11 @@ export function registerMarketTools(server: McpServer, client: KalshiClient): vo
       title: "List markets",
       description:
         "List Kalshi markets with optional filters (event, series, status, close-time window). " +
-        "Prices are in cents (1-99). " +
+        "Prices are in cents (1-99). Returns a compact summary per market by default; " +
+        "use kalshi_get_market for full details on one market. " +
         paginationNote,
       inputSchema: {
-        limit: z.number().int().min(1).max(1000).optional().describe("Results per page (1-1000, default 100)"),
+        limit: z.number().int().min(1).max(1000).optional().describe("Results per page (default 25; keep small to avoid oversized responses)"),
         cursor: z.string().optional().describe("Pagination cursor from a previous response"),
         event_ticker: z.string().optional().describe("Filter to markets in this event"),
         series_ticker: z.string().optional().describe("Filter to markets in this series"),
@@ -26,11 +27,24 @@ export function registerMarketTools(server: McpServer, client: KalshiClient): vo
         tickers: z.string().optional().describe("Comma-separated list of specific market tickers"),
         min_close_ts: z.number().int().optional().describe("Only markets closing at/after this Unix timestamp"),
         max_close_ts: z.number().int().optional().describe("Only markets closing at/before this Unix timestamp"),
+        full_details: z
+          .boolean()
+          .optional()
+          .describe("Return complete raw market objects instead of compact summaries (default false)"),
       },
     },
-    handle(async (args: Record<string, string | number | undefined>) =>
-      client.request("GET", "/markets", { query: args })
-    )
+    handle(async (args: Record<string, string | number | boolean | undefined>) => {
+      const { full_details, ...query } = args;
+      const data = await client.request<{ markets?: Record<string, unknown>[]; cursor?: string }>(
+        "GET",
+        "/markets",
+        { query: { ...query, limit: query.limit ?? 25 } }
+      );
+      if (!full_details && Array.isArray(data.markets)) {
+        return { ...data, markets: data.markets.map(compactMarket) };
+      }
+      return data;
+    })
   );
 
   server.registerTool(
@@ -107,14 +121,14 @@ export function registerMarketTools(server: McpServer, client: KalshiClient): vo
         paginationNote,
       inputSchema: {
         ticker: z.string().optional().describe("Filter to a single market ticker"),
-        limit: z.number().int().min(1).max(1000).optional().describe("Results per page (1-1000, default 100)"),
+        limit: z.number().int().min(1).max(1000).optional().describe("Results per page (default 50)"),
         cursor: z.string().optional().describe("Pagination cursor from a previous response"),
         min_ts: z.number().int().optional().describe("Only trades at/after this Unix timestamp"),
         max_ts: z.number().int().optional().describe("Only trades at/before this Unix timestamp"),
       },
     },
     handle(async (args: Record<string, string | number | undefined>) =>
-      client.request("GET", "/markets/trades", { query: args })
+      client.request("GET", "/markets/trades", { query: { ...args, limit: args.limit ?? 50 } })
     )
   );
 }

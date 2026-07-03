@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { KalshiClient } from "../client.js";
 import { handle } from "../helpers.js";
@@ -25,7 +25,7 @@ export function registerPortfolioTools(server: McpServer, client: KalshiClient):
         "Get the authenticated member's market positions (contracts held, exposure, realized PnL in cents)." +
         authNote,
       inputSchema: {
-        limit: z.number().int().min(1).max(1000).optional().describe("Results per page"),
+        limit: z.number().int().min(1).max(1000).optional().describe("Results per page (default 50)"),
         cursor: z.string().optional().describe("Pagination cursor from a previous response"),
         ticker: z.string().optional().describe("Filter to one market ticker"),
         event_ticker: z.string().optional().describe("Filter to one event ticker"),
@@ -42,7 +42,7 @@ export function registerPortfolioTools(server: McpServer, client: KalshiClient):
       },
     },
     handle(async (args: Record<string, string | number | undefined>) =>
-      client.request("GET", "/portfolio/positions", { query: args, auth: true })
+      client.request("GET", "/portfolio/positions", { query: { ...args, limit: args.limit ?? 50 }, auth: true })
     )
   );
 
@@ -56,14 +56,14 @@ export function registerPortfolioTools(server: McpServer, client: KalshiClient):
       inputSchema: {
         ticker: z.string().optional().describe("Filter to one market ticker"),
         order_id: z.string().optional().describe("Filter to fills of one order"),
-        limit: z.number().int().min(1).max(1000).optional().describe("Results per page"),
+        limit: z.number().int().min(1).max(1000).optional().describe("Results per page (default 50)"),
         cursor: z.string().optional().describe("Pagination cursor from a previous response"),
         min_ts: z.number().int().optional().describe("Only fills at/after this Unix timestamp"),
         max_ts: z.number().int().optional().describe("Only fills at/before this Unix timestamp"),
       },
     },
     handle(async (args: Record<string, string | number | undefined>) =>
-      client.request("GET", "/portfolio/fills", { query: args, auth: true })
+      client.request("GET", "/portfolio/fills", { query: { ...args, limit: args.limit ?? 50 }, auth: true })
     )
   );
 
@@ -75,7 +75,7 @@ export function registerPortfolioTools(server: McpServer, client: KalshiClient):
         "Get the authenticated member's settlement history (how settled markets resolved and resulting payouts, in cents)." +
         authNote,
       inputSchema: {
-        limit: z.number().int().min(1).max(1000).optional().describe("Results per page"),
+        limit: z.number().int().min(1).max(1000).optional().describe("Results per page (default 50)"),
         cursor: z.string().optional().describe("Pagination cursor from a previous response"),
         ticker: z.string().optional().describe("Filter to one market ticker"),
         event_ticker: z.string().optional().describe("Filter to one event ticker"),
@@ -84,7 +84,7 @@ export function registerPortfolioTools(server: McpServer, client: KalshiClient):
       },
     },
     handle(async (args: Record<string, string | number | undefined>) =>
-      client.request("GET", "/portfolio/settlements", { query: args, auth: true })
+      client.request("GET", "/portfolio/settlements", { query: { ...args, limit: args.limit ?? 50 }, auth: true })
     )
   );
 
@@ -102,14 +102,14 @@ export function registerPortfolioTools(server: McpServer, client: KalshiClient):
           .enum(["resting", "canceled", "executed"])
           .optional()
           .describe("Filter by order status"),
-        limit: z.number().int().min(1).max(1000).optional().describe("Results per page"),
+        limit: z.number().int().min(1).max(1000).optional().describe("Results per page (default 50)"),
         cursor: z.string().optional().describe("Pagination cursor from a previous response"),
         min_ts: z.number().int().optional().describe("Only orders created at/after this Unix timestamp"),
         max_ts: z.number().int().optional().describe("Only orders created at/before this Unix timestamp"),
       },
     },
     handle(async (args: Record<string, string | number | undefined>) =>
-      client.request("GET", "/portfolio/orders", { query: args, auth: true })
+      client.request("GET", "/portfolio/orders", { query: { ...args, limit: args.limit ?? 50 }, auth: true })
     )
   );
 

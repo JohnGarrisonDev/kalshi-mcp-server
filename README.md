@@ -145,8 +145,10 @@ This unlocks the portfolio tools (balance, positions, fills, settlements, orders
 
 - **Prices are in cents** (1–99) representing implied probability; a contract settles at 100¢ (yes) or 0¢ (no). Some newer responses also include `_dollars`/`_fp` fixed-point string fields.
 - **Ticker hierarchy:** a *series* (e.g. `KXHIGHNY`) contains *events* (e.g. `KXHIGHNY-25JUL03`) which contain *markets* (e.g. `KXHIGHNY-25JUL03-B85.5`).
-- **Pagination:** list endpoints return a `cursor`; pass it back to fetch the next page.
-- Public data endpoints are rate-limited by Kalshi; the client retries once on HTTP 429 with backoff.
+- **Pagination:** list endpoints return a `cursor`; pass it back to fetch the next page. List tools default to small page sizes (25–50) to keep responses MCP-client friendly.
+- **Compact vs. full responses:** `kalshi_list_markets`, `kalshi_list_events`, and `kalshi_list_series` return trimmed summaries by default (tickers, titles, prices, volume, timings). Pass `full_details: true` for raw API objects, or use the corresponding `kalshi_get_*` tool for one item's complete data.
+- **Size guard:** any response that would exceed ~40 KB is automatically trimmed (largest array halved until it fits) and annotated with a `_truncation_note`, so oversized tool results never crash the MCP client.
+- Public data endpoints are rate-limited by Kalshi; the client retries on HTTP 429 with backoff.
 
 ## Development
 
