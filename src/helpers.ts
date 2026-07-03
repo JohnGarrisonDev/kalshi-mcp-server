@@ -79,7 +79,11 @@ export function pick<T extends Record<string, unknown>>(obj: T, keys: string[]):
   return out;
 }
 
-/** Fields kept for a market in compact list responses. */
+/**
+ * Fields kept for a market in compact list responses. Kalshi is migrating
+ * from integer-cent fields (yes_bid) to fixed-point string fields
+ * (yes_bid_dollars, volume_fp); keep both so prices survive either shape.
+ */
 export const COMPACT_MARKET_FIELDS = [
   "ticker",
   "event_ticker",
@@ -95,10 +99,19 @@ export const COMPACT_MARKET_FIELDS = [
   "no_ask",
   "last_price",
   "previous_price",
+  "yes_bid_dollars",
+  "yes_ask_dollars",
+  "no_bid_dollars",
+  "no_ask_dollars",
+  "last_price_dollars",
+  "previous_price_dollars",
   "volume",
   "volume_24h",
   "open_interest",
   "liquidity",
+  "volume_fp",
+  "volume_24h_fp",
+  "open_interest_fp",
   "open_time",
   "close_time",
   "expiration_time",

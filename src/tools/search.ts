@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { KalshiClient } from "../client.js";
-import { handle } from "../helpers.js";
+import { compactMarket, handle } from "../helpers.js";
 
 interface SeriesRecord {
   ticker?: string;
@@ -79,8 +79,9 @@ export function registerSearchTools(server: McpServer, client: KalshiClient): vo
       description:
         "Find Kalshi series (market topics) by plain-language keywords when you don't know the exact ticker. " +
         "This is the entry point for questions like 'markets about the Nathan's hot dog contest' or 'Fed rate markets'. " +
-        "Returns the best-matching series with their tickers; then call kalshi_list_markets or kalshi_list_events " +
-        "with the chosen series_ticker to get the individual markets and prices. " +
+        "Returns the best-matching series with their tickers, and — for the top matches — their open markets inline " +
+        "with live prices, so one call usually answers 'what are the odds on X'. " +
+        "Use kalshi_list_markets / kalshi_get_market with the returned tickers to go deeper. " +
         "Searches series titles, tickers, categories, and tags (Kalshi has no server-side full-text search, so this " +
         "scans the full series catalog locally).",
       inputSchema: {
@@ -92,9 +93,26 @@ export function registerSearchTools(server: McpServer, client: KalshiClient): vo
           .string()
           .optional()
           .describe("Optional category to restrict the search, e.g. 'Sports', 'Economics', 'Politics'"),
+        include_markets: z
+          .boolean()
+          .optional()
+          .describe("Attach open markets with live prices to the top-matching series (default true)"),
+        markets_per_series: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .describe("Max open markets to attach per top series (default 10)"),
       },
     },
-    handle(async (args: { query: string; limit?: number; category?: string }) => {
+    handle(async (args: {
+      query: string;
+      limit?: number;
+      category?: string;
+      include_markets?: boolean;
+      markets_per_series?: number;
+    }) => {
       const queryTokens = tokenize(args.query).filter((t) => !STOPWORDS.has(t));
       const queryNorm = normalize(args.query);
       if (queryTokens.length === 0 && queryNorm.length === 0) {
@@ -113,14 +131,55 @@ export function registerSearchTools(server: McpServer, client: KalshiClient): vo
         .sort((a, b) => b.score - a.score || (a.s.title ?? "").localeCompare(b.s.title ?? ""));
 
       const limit = args.limit ?? 20;
-      const matches = scored.slice(0, limit).map(({ s, score }) => ({
+      interface Match {
+        series_ticker?: string;
+        title?: string;
+        category?: string;
+        frequency?: string;
+        tags?: string[];
+        match_score: number;
+        open_markets?: Record<string, unknown>[];
+        open_markets_note?: string;
+      }
+      const matches: Match[] = scored.slice(0, limit).map(({ s, score }) => ({
         series_ticker: s.ticker,
         title: s.title,
         category: s.category,
         frequency: s.frequency,
-        tags: s.tags,
+        tags: s.tags ?? undefined,
         match_score: score,
       }));
+
+      // Attach live open markets to the top matches so a single search call
+      // can answer "what are the current odds on X". Only the strongest hits
+      // get markets, to bound both API calls and response size.
+      const includeMarkets = args.include_markets ?? true;
+      if (includeMarkets && matches.length > 0) {
+        const marketsPerSeries = args.markets_per_series ?? 10;
+        const topScore = matches[0].match_score;
+        // Series within 2 points of the best match, capped at 5 series.
+        const topMatches = matches.filter((m) => m.match_score >= topScore - 2).slice(0, 5);
+        await Promise.all(
+          topMatches.map(async (match) => {
+            if (!match.series_ticker) return;
+            try {
+              const data = await client.request<{ markets?: Record<string, unknown>[] }>("GET", "/markets", {
+                query: { series_ticker: match.series_ticker, status: "open", limit: marketsPerSeries },
+              });
+              const markets = data.markets ?? [];
+              if (markets.length > 0) {
+                match.open_markets = markets.map(compactMarket);
+              } else {
+                match.open_markets_note = "No currently open markets in this series.";
+              }
+            } catch (error) {
+              match.open_markets_note = `Failed to load markets: ${
+                error instanceof Error ? error.message : String(error)
+              }`;
+            }
+          })
+        );
+      }
 
       return {
         query: args.query,
@@ -128,7 +187,7 @@ export function registerSearchTools(server: McpServer, client: KalshiClient): vo
         matches,
         next_step:
           matches.length > 0
-            ? "Call kalshi_list_markets or kalshi_list_events with series_ticker set to one of the returned series_ticker values to see the individual markets and prices."
+            ? "Top matches include their open markets with live prices (dollar strings, e.g. \"0.9300\" = 93% implied probability). Use kalshi_list_markets, kalshi_get_market, or kalshi_get_orderbook with these tickers for more depth."
             : "No matching series found. Try broader or different keywords.",
       };
     })

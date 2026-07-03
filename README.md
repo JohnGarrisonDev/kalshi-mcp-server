@@ -95,9 +95,9 @@ This unlocks the portfolio tools (balance, positions, fills, settlements, orders
 
 | Tool | Description |
 |---|---|
-| `kalshi_search` | **Start here.** Find market topics by plain-language keywords (e.g. "Nathan's hot dog contest", "Fed rate decision") and get their series tickers |
+| `kalshi_search` | **Start here.** Find market topics by plain-language keywords (e.g. "Nathan's hot dog contest", "Fed rate decision"); top matches include their open markets with live prices inline |
 
-Kalshi has no server-side text search, and its global market/event listings don't return every market — many only appear when you already know the series. `kalshi_search` scans the full series catalog locally and returns the best-matching series, so the model can then call `kalshi_list_markets` / `kalshi_list_events` with the right `series_ticker`.
+Kalshi has no server-side text search, and its global market/event listings don't return every market — many only appear when you already know the series. `kalshi_search` scans the full series catalog locally, returns the best-matching series, and attaches live open markets (bid/ask/last/volume) to the strongest matches — so a question like "what are the odds on X" is usually answered in a single tool call. Pass `include_markets: false` for a leaner topic-only result.
 
 ### Exchange (public)
 
@@ -151,7 +151,7 @@ Kalshi has no server-side text search, and its global market/event listings don'
 
 ## Notes on Kalshi data
 
-- **Prices are in cents** (1–99) representing implied probability; a contract settles at 100¢ (yes) or 0¢ (no). Some newer responses also include `_dollars`/`_fp` fixed-point string fields.
+- **Prices represent implied probability**; a contract settles at $1 (yes) or $0 (no). Kalshi is migrating from integer-cent fields (`yes_bid: 35`) to fixed-point dollar strings (`yes_bid_dollars: "0.3500"`, `volume_fp: "9715.43"`) — production responses now mostly use the `_dollars`/`_fp` forms, and compact summaries preserve both.
 - **Ticker hierarchy:** a *series* (e.g. `KXHIGHNY`) contains *events* (e.g. `KXHIGHNY-25JUL03`) which contain *markets* (e.g. `KXHIGHNY-25JUL03-B85.5`).
 - **Finding markets:** don't guess tickers. Use `kalshi_search` with keywords to get a `series_ticker`, then `kalshi_list_markets` / `kalshi_list_events` filtered by that series. The global unfiltered listings are incomplete and shouldn't be scanned for a specific topic.
 - **Pagination:** list endpoints return a `cursor`; pass it back to fetch the next page. List tools default to small page sizes (25–50) to keep responses MCP-client friendly.
